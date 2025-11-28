@@ -1,7 +1,7 @@
 # milestones
 
 - [x] docker-compose for the pg, ch, spark instances
-- [ ] configure spark
+- [x] configure spark
 - [ ] DDL scripts
 - [ ] schema def pg
 - [ ] schema def ch
@@ -11,7 +11,7 @@
 - [ ] checkpoint storage in pg
 - [ ] incremental load records
 - [ ] retry and idempotency
-
+---
 - [ ] scheduler
 - [ ] batch option
   - [ ] created_at
@@ -20,3 +20,6 @@
 - [ ] streaming option
   - [ ] cdc
 - [ ] validation
+---
+- [ ] use apache/spark rather than bitnami's and create a configured bare boned setup
+- [ ] inject the DDLs and data on-start
