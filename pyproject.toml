@@ -1,0 +1,12 @@
+[project]
+name = "pg-ch-streamer"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "apache-airflow>=3.1.3",
+    "clickhouse-connect>=0.10.0",
+    "psycopg2-binary>=2.9.11",
+    "pyspark>=4.0.1",
+]
