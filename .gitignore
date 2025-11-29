@@ -209,3 +209,4 @@ __marimo__/
 resources/
 data/
 *.env
+tests/test.env

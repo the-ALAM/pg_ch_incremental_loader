@@ -1,16 +1,16 @@
-import os
-import psycopg2
 from dotenv import load_dotenv
+import psycopg2
+import os
 
 def test_postgres_connection():
     try:
         load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), 'test.env'))
 
-        pg_host = os.environ.get("POSTGRES_HOST", "localhost")
-        pg_port = int(os.environ.get("POSTGRES_PORT", "5432"))
-        pg_user = os.environ.get("POSTGRES_USER", "postgres")
-        pg_password = os.environ.get("POSTGRES_PASSWORD", "postgres")
-        pg_database = os.environ.get("POSTGRES_DB", "postgres")
+        pg_host = os.environ.get("POSTGRES_HOST")
+        pg_port = int(os.environ.get("POSTGRES_PORT"))
+        pg_user = os.environ.get("POSTGRES_USER")
+        pg_password = os.environ.get("POSTGRES_PASSWORD")
+        pg_database = os.environ.get("POSTGRES_DB")
 
         conn = psycopg2.connect(
             host=pg_host,
@@ -20,7 +20,7 @@ def test_postgres_connection():
             dbname=pg_database
         )
         cur = conn.cursor()
-        cur.execute("SELECT 1;")
+        cur.execute("SELECT True;")
         result = cur.fetchone()
         print("Connection successful. Query result:", result)
         cur.close()
