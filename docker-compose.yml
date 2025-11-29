@@ -36,7 +36,7 @@ services:
       - koinz_net
 
   spark-master:
-    image: bitnami/spark:latest
+    image: apache/spark:latest
     container_name: spark-master
     hostname: spark-master
     command: >
@@ -67,7 +67,7 @@ services:
       - clickhouse
 
   spark-worker:
-    image: bitnami/spark:latest
+    image: apache/spark:latest
     container_name: spark-worker
     hostname: spark-worker
     command: >

@@ -40,9 +40,13 @@ autovacuum_vacuum_cost_delay=2
 
 # ask
 
-Create an Apache Spark application that reads newly inserted records into this table and inserts them into an identical ClickHouse table. The Spark application is expected to run every 30 mins. You are free to create the spark application using structured streaming and a CDC driver for postgres, or batch reading/writing and rely on the source tables created_at/updated_at to detect new records.
+Create an Apache Spark application that reads newly inserted records into this table and inserts them into an identical ClickHouse table. 
+The Spark application is expected to run every 30 mins. 
+You are free to create the spark application using structured streaming and a CDC driver for postgres, 
+or batch reading/writing and rely on the source tables created_at/updated_at to detect new records.
 
-Provide a DDL script for the newly created table on ClickHouse. Provide any additional configurations needed for Apache Spark to be able to connect to Postgres or ClickHouse.
+Provide a DDL script for the newly created table on ClickHouse. 
+Provide any additional configurations needed for Apache Spark to be able to connect to Postgres or ClickHouse.
 
 You can find sample data for you to test your code within the same archive
 
