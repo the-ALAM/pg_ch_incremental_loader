@@ -12,6 +12,7 @@ services:
       - "0.0.0.0:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./sql/ddl-pg.sql:/docker-entrypoint-initdb.d/01-ddl.sql
     networks:
       - koinz_net
 
@@ -32,6 +33,15 @@ services:
         hard: 262144
     volumes:
       - chdata:/var/lib/clickhouse
+      - ./sql/ddl-ch.sql:/docker-entrypoint-initdb.d/ddl-ch.sql
+      - ./scripts/init-clickhouse.sh:/docker-entrypoint-initdb.d/init-clickhouse.sh
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        /entrypoint.sh &
+        PID=$$!
+        /docker-entrypoint-initdb.d/init-clickhouse.sh
+        wait $$PID
     networks:
       - koinz_net
 
