@@ -2,7 +2,6 @@ from pyspark.sql.functions import col, greatest, lit, coalesce
 from logger import setup_logger #, suppress_spark_logs
 from pyspark.sql import SparkSession
 from config import Config
-import time
 
 
 log = setup_logger()
@@ -19,12 +18,17 @@ def create_spark_session():
 
 def get_last_sync_timestamp(spark):
     """
-    Queries ClickHouse to find the maximum timestamp.
+    Queries ClickHouse to find the maximum timestamps for both updated_at and created_at.
+    Returns a tuple (last_updated_at, last_created_at, is_empty).
+    If table is empty, returns (None, None, True).
     """
-    #TODO - add 'created_at' fallback to handle first run condition and return a tuple with the column name and value -> (str, str)
-    #TODO - add backfill from min ts if ch table is empty
-
-    query = "SELECT max(updated_at) as last_ts FROM app_user_visits_fact"
+    query = """
+    SELECT 
+        max(updated_at) as last_updated_ts,
+        max(created_at) as last_created_ts,
+        count(*) as record_count
+    FROM app_user_visits_fact
+    """
     try:
         df = spark.read \
             .format("jdbc") \
@@ -36,10 +40,21 @@ def get_last_sync_timestamp(spark):
             .load()
         
         row = df.collect()[0]
-        return row['last_ts']
+        record_count = row['record_count'] if row['record_count'] else 0
+        
+        if record_count == 0:
+            log.info("ClickHouse table is empty - will perform full backfill")
+            return (None, None, True)
+        
+        last_updated_ts = row['last_updated_ts']
+        last_created_ts = row['last_created_ts']
+        
+        log.info(f"Found {record_count} records. Last updated_at: {last_updated_ts}, Last created_at: {last_created_ts}")
+        return (last_updated_ts, last_created_ts, False)
+        
     except Exception as e:
         log.warning(f"Could not fetch last timestamp (Table might be empty or new): {e}")
-        return None
+        return (None, None, True)
 
 def main():
     spark = create_spark_session()
@@ -47,23 +62,12 @@ def main():
     # suppress_spark_logs(spark)
     log.info("Starting Incremental Sync Job...")
 
-    #! cutoff ts
-    last_sync_ts = get_last_sync_timestamp(spark)
-    log.info(f"last_sync_ts: {last_sync_ts}")
+    #! last sync timestamps
+    last_updated_ts, last_created_ts, is_empty = get_last_sync_timestamp(spark)
     
-    if last_sync_ts is not None and last_sync_ts > 0:
-        log.info(f"Last sync detected at timestamp: {last_sync_ts}")
-        cutoff_ts = last_sync_ts
-    else:
-        #! lookback in increments of a day to handle first run condition with milliseconds int64 epochs
-        current_time = int(time.time() * 1000) 
-        time_block = 12 * 30 * 24 * 60 * 60 * 1000
-        cutoff_ts = current_time - time_block
-        log.info(f"No previous data found. trying to backfill the data in a one year lookback period: {cutoff_ts}")
-
-    #! pg read
+    #! pg read - load all data from PostgreSQL
     try:
-        log.info(f"Reading PostgreSQL records modified after {cutoff_ts}...")
+        log.info("Reading all records from PostgreSQL...")
         
         pg_df = spark.read \
             .format("jdbc") \
@@ -74,23 +78,81 @@ def main():
             .option("password", Config.PG_PASSWORD) \
             .load()
 
-        incremental_df = pg_df.filter(
-            (col("updated_at") > cutoff_ts) | 
-            (col("updated_at").isNull() & (col("created_at") > cutoff_ts))
-        )
+        #! backfill if ch table empty
+        if is_empty:
+            log.info("ClickHouse table is empty. Loading all records from PostgreSQL...")
+            total_count = pg_df.count()
+            if total_count == 0:
+                log.info("No records found in PostgreSQL. Sync complete.")
+                return
+            log.info(f"Found {total_count} records to sync (full backfill).")
+            
+            pg_df.write \
+                .format("jdbc") \
+                .option("driver", "com.clickhouse.jdbc.ClickHouseDriver") \
+                .option("url", Config.get_ch_url()) \
+                .option("user", Config.CH_USER) \
+                .option("password", Config.CH_PASSWORD) \
+                .option("dbtable", "app_user_visits_fact") \
+                .option("batchsize", "5000") \
+                .option("isolationLevel", "NONE") \
+                .mode("append") \
+                .save()
+            
+            log.info("Full backfill successful. Job finished.")
+            return
 
-        record_count = incremental_df.count()
-        if record_count == 0:
+        #! dual stream incremental sync
+        log.info(f"Performing incremental sync. Last updated_at: {last_updated_ts}, Last created_at: {last_created_ts}")
+        
+        #! updated records
+        if last_updated_ts is not None:
+            updated_df = pg_df.filter(
+                col("updated_at").isNotNull() & 
+                (col("updated_at") > last_updated_ts)
+            )
+        else:
+            updated_df = pg_df.filter(lit(False))
+        
+        #! created records
+        if last_created_ts is not None:
+            created_df = pg_df.filter(
+                col("updated_at").isNull() & 
+                col("created_at").isNotNull() & 
+                (col("created_at") > last_created_ts)
+            )
+        else:
+            created_df = pg_df.filter(lit(False))
+        
+        updated_count = updated_df.count()
+        created_count = created_df.count()
+        
+        log.info(f"Found {updated_count} updated records and {created_count} created records to sync.")
+        
+        if updated_count == 0 and created_count == 0:
             log.info("No new records found. Sync complete.")
             return
 
-        log.info(f"Found {record_count} new/updated records to sync.")
+        #! ch load newly updated
+        if updated_count > 0:
+            log.info(f"Writing {updated_count} updated records to ClickHouse...")
+            updated_df.write \
+                .format("jdbc") \
+                .option("driver", "com.clickhouse.jdbc.ClickHouseDriver") \
+                .option("url", Config.get_ch_url()) \
+                .option("user", Config.CH_USER) \
+                .option("password", Config.CH_PASSWORD) \
+                .option("dbtable", "app_user_visits_fact") \
+                .option("batchsize", "5000") \
+                .option("isolationLevel", "NONE") \
+                .mode("append") \
+                .save()
+            log.info("Updated records written successfully.")
 
-        #! ch write
-        #FIXME - change ch table engine to handle duplicate consolidation
-        log.info("Writing records to ClickHouse...")
-        
-        incremental_df.write \
+        #! ch load newly created
+        if created_count > 0:
+            log.info(f"Writing {created_count} created records to ClickHouse...")
+            created_df.write \
             .format("jdbc") \
             .option("driver", "com.clickhouse.jdbc.ClickHouseDriver") \
             .option("url", Config.get_ch_url()) \
@@ -101,8 +163,9 @@ def main():
             .option("isolationLevel", "NONE") \
             .mode("append") \
             .save()
-            
-        log.info("Write successful. Job finished.")
+            log.info("Created records written successfully.")
+
+        log.info("Incremental sync completed successfully. Job finished.")
 
     except Exception as e:
         log.error(f"Sync Job Failed: {e}")
