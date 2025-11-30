@@ -1,3 +1,38 @@
+
+CREATE TABLE branches (
+    id text PRIMARY KEY,
+    name text NOT NULL,
+    address text,
+    city text,
+    country text,
+    created_at int8 NULL,
+    updated_at int8 NULL
+);
+
+CREATE TABLE cashiers (
+    id text PRIMARY KEY,
+    name text NOT NULL,
+    branch_id text NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    created_at int8 NULL,
+    updated_at int8 NULL
+);
+
+CREATE TABLE app_users (
+    id text PRIMARY KEY,
+    phone_number text,
+    name text,
+    created_at int8 NULL,
+    updated_at int8 NULL
+);
+
+CREATE TABLE stores (
+    id text PRIMARY KEY,
+    name text NOT NULL,
+    branch_id text NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    created_at int8 NULL,
+    updated_at int8 NULL
+);
+
 CREATE TABLE app_user_visits_fact (
     id text NOT NULL,
     phone_number text NULL,
