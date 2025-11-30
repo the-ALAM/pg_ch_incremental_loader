@@ -24,6 +24,7 @@ CREATE TABLE app_user_visits_fact
     sync_mechanism String,
     is_bulk_points String
 )
-ENGINE = MergeTree
+-- ENGINE = MergeTree
+ENGINE = ReplacingMergeTree(updated_at)
 PRIMARY KEY id
 ORDER BY id;
