@@ -207,6 +207,7 @@ marimo/_lsp/
 __marimo__/
 
 resources/
+resources/*
 data/
 *.env
 tests/test.env

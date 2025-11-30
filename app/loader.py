@@ -26,7 +26,7 @@ def get_last_sync_timestamp(spark):
     SELECT 
         max(updated_at) as last_updated_ts,
         max(created_at) as last_created_ts,
-        count(*) as record_count
+        CAST(count(*) AS Int32) as record_count
     FROM app_user_visits_fact
     """
     try:
@@ -41,6 +41,7 @@ def get_last_sync_timestamp(spark):
         
         row = df.collect()[0]
         record_count = row['record_count'] if row['record_count'] else 0
+        log.debug(f"row: {record_count}")
         
         if record_count == 0:
             log.info("ClickHouse table is empty - will perform full backfill")
@@ -60,15 +61,18 @@ def main():
     spark = create_spark_session()
     #deprecated - modified it from the log4j prop conf
     # suppress_spark_logs(spark)
+    print("-" * 100)
     log.info("Starting Incremental Sync Job...")
 
     #! last sync timestamps
     last_updated_ts, last_created_ts, is_empty = get_last_sync_timestamp(spark)
-    
+    log.debug(f"updated: {last_updated_ts}\ncreated: {last_created_ts}\nempty: {is_empty}")
+
     #! pg read - load all data from PostgreSQL
     try:
-        log.info("Reading all records from PostgreSQL...")
-        
+        print("-" * 100)
+        log.info("Reading PostgreSQL records...")
+
         pg_df = spark.read \
             .format("jdbc") \
             .option("driver", "org.postgresql.Driver") \
