@@ -1,0 +1,1 @@
+*/30 * * * * /bin/bash uv run ./app/app.py >> .//cron.log 2>&1
