@@ -26,4 +26,4 @@
 - [ ] the peerdb approach to loading data
 - [ ] create the DDL for the logs table and stream it
 - [ ] index on created_at, updated_at metadata columns
-****
+- [x] readme and documentation
