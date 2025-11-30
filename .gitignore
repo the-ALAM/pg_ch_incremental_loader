@@ -210,3 +210,4 @@ resources/
 data/
 *.env
 tests/test.env
+*.env*
