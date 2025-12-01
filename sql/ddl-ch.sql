@@ -25,6 +25,6 @@ CREATE TABLE app_user_visits_fact
     is_bulk_points String
 )
 -- ENGINE = MergeTree
-ENGINE = ReplacingMergeTree(id, created_at, updated_at)
+ENGINE = ReplacingMergeTree(updated_at)
 PRIMARY KEY id
-ORDER BY id;
+ORDER BY id, created_at, updated_at;
