@@ -116,7 +116,7 @@ def main():
                 (col("updated_at") > last_updated_ts)
             )
         else:
-            updated_df = pg_df.filter(lit(False))
+            updated_df = pg_df
         
         #! created records
         if last_created_ts is not None:
@@ -126,7 +126,7 @@ def main():
                 (col("created_at") > last_created_ts)
             )
         else:
-            created_df = pg_df.filter(lit(False))
+            created_df = pg_df
         
         updated_count = updated_df.count()
         created_count = created_df.count()
